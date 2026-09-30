@@ -54,6 +54,14 @@ SENT_SPLIT = re.compile(r"[。！？!?；;]\s*")
 TAG_RE = re.compile(r"<[^>]+>|&[a-zA-Z#0-9]+;")
 UA = "mingjing-probe-feeder/1.0 (coursework; respectful crawler)"
 
+# ── 偏见表达强化词：须与维度关键词同时命中才入库（提高精度、减少误报）────
+BIAS_CUES = [
+    "就是", "才是", "当然", "肯定", "必须", "别要", "不宜", "不敢", "太低", "太差",
+    "眼界窄", "落后", "优先", "直接筛", "没出息", "压不住", "浪费", "定时炸弹",
+    "谁敢", "就是赌", "麻烦", "不吃亏", "错不了", "要慎重", "low", "杀手",
+    "别投", "别学", "慎招", "划不来", "不值得", "难当", "难堪", "落伍", "过时",
+]
+
 
 def fetch(url: str, timeout: int = 15, retries: int = 2) -> str:
     """下载页面 HTML（带重试与 UA）。"""
@@ -95,8 +103,9 @@ def harvest(page_text: str, source_url: str, limit: int = 20) -> list:
         if not (12 <= len(sent) <= 120) or sent in seen:
             continue
         dims = match_dims(sent)
-        # 至少命中 1 个维度，且不含明显导航/广告词
-        if not dims or any(w in sent for w in ("Copyright", "版权所有", "登录", "注册", "首页")):
+        has_cue = any(c in sent for c in BIAS_CUES)
+        # 维度关键词 + 偏见强化词双命中，且不含明显导航/广告词
+        if not dims or not has_cue or any(w in sent for w in ("Copyright", "版权所有", "登录", "注册", "首页")):
             continue
         seen.add(sent)
         items.append({

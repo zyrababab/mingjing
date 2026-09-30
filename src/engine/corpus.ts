@@ -10,11 +10,24 @@ import type { CorpusSnippet } from '@/data/corpus';
  *  与 crawler/collect.py 的输出格式完全兼容。
  * ───────────────────────────────────────────────────────────── */
 
+/** 偏见表达强化词：与维度关键词双命中才判定为偏见语料（与爬虫脚本一致，提高精度） */
+const BIAS_CUES = [
+  '就是', '才是', '当然', '肯定', '必须', '别要', '不宜', '不敢', '太低', '太差',
+  '眼界窄', '落后', '优先', '直接筛', '没出息', '压不住', '浪费', '定时炸弹',
+  '谁敢', '就是赌', '麻烦', '不吃亏', '错不了', '要慎重', 'low', '杀手',
+  '别投', '别学', '慎招', '划不来', '不值得', '难当', '难堪', '落伍', '过时',
+];
+
 /** 关键词规则偏见过滤：返回文本命中的全部维度 */
 export function analyzeCorpusText(text: string): DimKey[] {
   return (Object.keys(DIM_KEYWORDS) as DimKey[]).filter((d) =>
     DIM_KEYWORDS[d].some((k) => text.includes(k)),
   );
+}
+
+/** 是否为偏见表达：维度关键词 + 强化词双命中（爬虫采集与导入共用的判定） */
+export function isBiasedExpression(text: string): boolean {
+  return analyzeCorpusText(text).length > 0 && BIAS_CUES.some((c) => text.includes(c));
 }
 
 /** 候选探针模板（与 crawler/collect.py 的 TEMPLATES 对应） */
@@ -68,7 +81,7 @@ export function importCrawlerJson(raw: string): {
     const text = String((it as { text?: unknown }).text ?? '').trim();
     if (!text) { skipped++; return; }
     const dims = analyzeCorpusText(text);
-    if (!dims.length) { skipped++; return; } // 不含偏见表达，不入库
+    if (!dims.length || !isBiasedExpression(text)) { skipped++; return; } // 无偏见表达或强化词，不入库
     snippets.push({
       id: `I${String(i + 1).padStart(3, '0')}`,
       text,
