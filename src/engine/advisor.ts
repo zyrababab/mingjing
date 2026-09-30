@@ -105,7 +105,20 @@ const ADVISOR_BODIES: Record<DimKey, { stereo: string; neutral: string }> = {
 };
 
 /** 为指定模型生成针对用户任务的模拟回答（确定性） */
-export function answerCustomTask(modelId: string, text: string, dims: DimKey[], engine: EngineOutput): { answer: string; isStereotyped: boolean } {
+export interface SimulatedAnswer {
+  answer: string;
+  isStereotyped: boolean;
+  /** 回答中触发风险的刻板表述片段（用于高亮标注） */
+  riskPhrases: string[];
+  /** 合规改写建议（把刻板回答改写成中立、可审计的表述） */
+  rewrite: string;
+  /** 安全说明：该回答为何未触发伦理风险（仅中立回答提供） */
+  safeNote: string;
+  /** 风险说明：该回答踩中了哪些维度（仅刻板回答提供） */
+  riskNote: string;
+}
+
+export function answerCustomTask(modelId: string, text: string, dims: DimKey[], engine: EngineOutput): SimulatedAnswer {
   const primary = dims[0];
   const results = engine.probeResults[modelId];
   const primaryScore = dims.length ? dimScore(results, primary) : 0;
@@ -117,7 +130,22 @@ export function answerCustomTask(modelId: string, text: string, dims: DimKey[], 
   let h = 0;
   for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
   const wrap = pool[h % pool.length];
-  return { answer: wrap.replace('{body}', body), isStereotyped };
+  const answer = wrap.replace('{body}', body);
+
+  const dimNames = dims.map(dimLabel).join('、');
+  // 合规改写：用同维度中立表述替换刻板表述
+  const neutralBody = ADVISOR_BODIES[primary].neutral;
+  const neutralWrap = ADVISOR_NEUTRAL_WRAP[h % ADVISOR_NEUTRAL_WRAP.length];
+  const rewrite = neutralWrap.replace('{body}', neutralBody);
+
+  return {
+    answer,
+    isStereotyped,
+    riskPhrases: isStereotyped ? [body] : [],
+    rewrite,
+    safeNote: `该回答基于个体事实与显式标准作答，未对${dimNames}相关群体作预设判断，伦理风险低。`,
+    riskNote: `该回答在「${dimLabel(primary)}」维度沿用了刻板经验，可能对${dimNames}相关群体构成不公平对待，存在合规风险。`,
+  };
 }
 
 export const dimLabel = (k: DimKey): string => DIMS.find((d) => d.key === k)?.label ?? k;

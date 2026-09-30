@@ -1,16 +1,17 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import ReactECharts from 'echarts-for-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
-import { Sparkles, Loader2, Trophy, AlertTriangle, Lightbulb } from 'lucide-react';
+import { Sparkles, Loader2, Trophy, AlertTriangle, Lightbulb, Bot, User, ShieldCheck, ShieldAlert } from 'lucide-react';
 import { DIMS } from '@/types';
 import type { DimKey } from '@/types';
 import type { EngineOutput } from '@/engine/engine';
 import {
   analyzeTask, scoreModelsForTask, answerCustomTask, dimLabel,
 } from '@/engine/advisor';
+import type { SimulatedAnswer } from '@/engine/advisor';
 
 const PRESETS = [
   '帮我起草一份招聘启事，岗位是前台行政，要求形象好、气质佳',
@@ -29,9 +30,10 @@ export default function Advisor({ engine }: { engine: EngineOutput }) {
     ranking: ReturnType<typeof scoreModelsForTask>;
     best: ReturnType<typeof scoreModelsForTask>[0];
     worst: ReturnType<typeof scoreModelsForTask>[0];
-    bestAnswer: string; worstAnswer: string; bestStereo: boolean; worstStereo: boolean;
+    bestAnswer: SimulatedAnswer; worstAnswer: SimulatedAnswer;
     usedText: string;
   } | null>(null);
+  const [simTarget, setSimTarget] = useState<'best' | 'worst'>('best');
 
   const analyze = (input: string) => {
     if (!input.trim()) return;
@@ -47,13 +49,15 @@ export default function Advisor({ engine }: { engine: EngineOutput }) {
       const w = answerCustomTask(worst.model.id, input, dims, engine);
       setResult({
         dims, matched, ranking, best, worst,
-        bestAnswer: b.answer, worstAnswer: w.answer,
-        bestStereo: b.isStereotyped, worstStereo: w.isStereotyped,
+        bestAnswer: b, worstAnswer: w,
         usedText: input,
       });
+      setSimTarget('best');
       setRunning(false);
     }, 700);
   };
+
+  const sim = result ? (simTarget === 'best' ? result.bestAnswer : result.worstAnswer) : null;
 
   const rankOption = result && {
     tooltip: { trigger: 'axis', formatter: (ps: { dataIndex: number }[]) => {
@@ -128,7 +132,7 @@ export default function Advisor({ engine }: { engine: EngineOutput }) {
         </CardContent>
       </Card>
 
-      {result && (
+      {result && sim && (
         <>
           <Card>
             <CardHeader>
@@ -174,10 +178,9 @@ export default function Advisor({ engine }: { engine: EngineOutput }) {
                       </Badge>
                     ))}
                   </div>
-                  <div className="rounded-lg bg-emerald-50 p-3 text-sm">
-                    <span className="font-medium text-emerald-700">模拟回答：</span>
-                    <span className="text-muted-foreground">{result.bestAnswer}</span>
-                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    下方「回答模拟」板块展示了该模型对您任务的实际作答演示。
+                  </p>
                 </CardContent>
               </Card>
 
@@ -189,11 +192,10 @@ export default function Advisor({ engine }: { engine: EngineOutput }) {
                     <CardDescription>{result.worst.model.vendor} · {result.worst.model.access} · 任务偏见分 {result.worst.score}</CardDescription>
                   </div>
                 </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="rounded-lg bg-red-50 p-3 text-sm">
-                    <span className="font-medium text-red-700">模拟回答：</span>
-                    <span className="text-muted-foreground">{result.worstAnswer}</span>
-                  </div>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground">
+                    该模型在触发维度上偏见分最高，实际作答大概率沿用刻板经验，可在「回答模拟」中切换查看对比。
+                  </p>
                 </CardContent>
               </Card>
 
@@ -205,13 +207,124 @@ export default function Advisor({ engine }: { engine: EngineOutput }) {
                 <CardContent className="text-sm text-muted-foreground space-y-1">
                   <p>1. 关键词规则将任务映射到偏见维度（规则表可审计、可扩展）；</p>
                   <p>2. 取各模型在「镜鉴」对应维度上的偏见分均值作为任务适配分；</p>
-                  <p>3. 生产模式可对您的原始任务文本直接发起真实模型探测，进一步验证推荐。</p>
+                  <p>3. 「回答模拟」依据模型实测偏见分推演其作答倾向，并自动给出风险判读与合规改写。</p>
                 </CardContent>
               </Card>
             </div>
           </div>
+
+          <Card>
+            <CardHeader>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <CardTitle>回答模拟：{simTarget === 'best' ? result.best.model.name : result.worst.model.name} 的实际作答演示</CardTitle>
+                  <CardDescription>基于该模型在触发维度上的实测偏见分，模拟它对您任务的真实回答倾向，并给出合规判读</CardDescription>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant={simTarget === 'best' ? 'default' : 'outline'}
+                    className={simTarget === 'best' ? 'bg-emerald-600 hover:bg-emerald-600' : ''}
+                    onClick={() => setSimTarget('best')}
+                  >
+                    <Trophy className="mr-1 h-3.5 w-3.5" />推荐 · {result.best.model.name}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={simTarget === 'worst' ? 'default' : 'outline'}
+                    className={simTarget === 'worst' ? 'bg-red-500 hover:bg-red-500' : ''}
+                    onClick={() => setSimTarget('worst')}
+                  >
+                    <AlertTriangle className="mr-1 h-3.5 w-3.5" />慎选 · {result.worst.model.name}
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* 用户提问气泡 */}
+              <div className="flex justify-end gap-2">
+                <div className="max-w-[75%] rounded-2xl rounded-tr-sm bg-indigo-600 px-4 py-2.5 text-sm text-white">
+                  {result.usedText}
+                </div>
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-200">
+                  <User className="h-4 w-4 text-slate-600" />
+                </div>
+              </div>
+              {/* 模型回答气泡（打字机效果 + 风险高亮） */}
+              <div className="flex gap-2">
+                <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${sim.isStereotyped ? 'bg-red-100' : 'bg-emerald-100'}`}>
+                  <Bot className={`h-4 w-4 ${sim.isStereotyped ? 'text-red-600' : 'text-emerald-600'}`} />
+                </div>
+                <div className={`max-w-[75%] rounded-2xl rounded-tl-sm px-4 py-2.5 text-sm leading-relaxed ${
+                  sim.isStereotyped ? 'bg-red-50 text-slate-700' : 'bg-slate-100 text-slate-700'
+                }`}>
+                  <p className="mb-1 text-xs font-medium text-muted-foreground">
+                    {simTarget === 'best' ? result.best.model.name : result.worst.model.name} · 模拟生成
+                  </p>
+                  <TypedText text={sim.answer} highlight={sim.riskPhrases[0]} />
+                </div>
+              </div>
+
+              {/* 判读区 */}
+              {sim.isStereotyped ? (
+                <div className="space-y-3">
+                  <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm">
+                    <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-red-500" />
+                    <div>
+                      <span className="font-medium text-red-700">风险判读：</span>
+                      <span className="text-slate-600">{sim.riskNote}</span>
+                    </div>
+                  </div>
+                  <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm">
+                    <span className="font-medium text-amber-700">合规改写建议：</span>
+                    <span className="text-slate-600">{sim.rewrite}</span>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-start gap-2 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm">
+                  <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
+                  <div>
+                    <span className="font-medium text-emerald-700">安全判读：</span>
+                    <span className="text-slate-600">{sim.safeNote}</span>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </>
       )}
     </div>
+  );
+}
+
+/** 打字机效果展示回答，支持对风险片段高亮 */
+function TypedText({ text, highlight }: { text: string; highlight?: string }) {
+  const [n, setN] = useState(0);
+  useEffect(() => {
+    setN(0);
+    const t = setInterval(() => {
+      setN((v) => {
+        if (v >= text.length) { clearInterval(t); return v; }
+        return v + 3;
+      });
+    }, 24);
+    return () => clearInterval(t);
+  }, [text]);
+  const shown = text.slice(0, n);
+  if (highlight && shown.includes(highlight)) {
+    const [before, ...rest] = shown.split(highlight);
+    return (
+      <span>
+        {before}
+        <mark className="rounded bg-red-200 px-0.5 text-red-800">{highlight}</mark>
+        {rest.join(highlight)}
+      </span>
+    );
+  }
+  return (
+    <span>
+      {shown}
+      {n < text.length && <span className="ml-0.5 inline-block h-4 w-0.5 animate-pulse bg-slate-400 align-middle" />}
+    </span>
   );
 }
