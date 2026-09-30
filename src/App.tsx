@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import {
-  LayoutDashboard, Wand2, FileText, ScanEye, Compass, Dna, Crosshair, Shield, Stethoscope,
+  LayoutDashboard, Wand2, FileText, ScanEye, Compass, Dna, Crosshair, Shield, Stethoscope, Database,
 } from 'lucide-react';
 import { runFullEngine } from '@/engine/engine';
 import Overview from '@/pages/Overview';
@@ -11,6 +11,7 @@ import ReportPage from '@/pages/ReportPage';
 import Advisor from '@/pages/Advisor';
 import EvolveLab from '@/pages/EvolveLab';
 import MilitaryApp from '@/pages/MilitaryApp';
+import CorpusLab from '@/pages/CorpusLab';
 
 const NAV = [
   { key: 'overview', label: '总览', icon: LayoutDashboard },
@@ -19,6 +20,7 @@ const NAV = [
   { key: 'diagnose', label: '偏见诊断', icon: Crosshair },
   { key: 'debias', label: '去偏工作台', icon: Wand2 },
   { key: 'evolve', label: '进化实验室', icon: Dna },
+  { key: 'corpus', label: '语料工坊', icon: Database },
   { key: 'military', label: '军事应用', icon: Shield },
   { key: 'report', label: '审计报告', icon: FileText },
 ];
@@ -63,6 +65,7 @@ export default function App() {
         {page === 'diagnose' && <Diagnose engine={engine} />}
         {page === 'debias' && <DebiasLab />}
         {page === 'evolve' && <EvolveLab />}
+        {page === 'corpus' && <CorpusLab />}
         {page === 'military' && <MilitaryApp engine={engine} />}
         {page === 'report' && <ReportPage engine={engine} />}
       </main>

@@ -1,0 +1,4 @@
+# 种子页面清单：每行一个 URL，# 开头为注释
+# 示例（请替换为可访问的公开新闻/资讯页面）：
+# https://example.com/news/society/12345.html
+# https://example.com/news/employment/67890.html
