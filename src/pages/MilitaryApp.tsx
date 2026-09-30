@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -22,7 +23,7 @@ import {
   allocatePost, intelSummary, polishBroadcast, mutateMilitaryProbe, MILITARY_PROBES,
   triagePatient, roeAnswer, targetIdentify, ROE_QA,
 } from '@/engine/lab';
-import type { PostProfile, TriageProfile } from '@/engine/lab';
+import type { PostProfile, TriageProfile, MilitaryProbe } from '@/engine/lab';
 
 const DOMAIN_TABS = [
   { value: 'hr', label: '人员工作', icon: Users },
@@ -67,7 +68,14 @@ export default function MilitaryApp({ engine }: { engine: EngineOutput }) {
   const [baseProbeId, setBaseProbeId] = useState(MILITARY_PROBES[0].id);
   const [opKeys, setOpKeys] = useState<string[]>(['roleplay', 'pressure']);
   const [mutants, setMutants] = useState<ReturnType<typeof mutateMilitaryProbe>>([]);
+  const [customProbe, setCustomProbe] = useState('');
+  const [runProbe, setRunProbe] = useState<MilitaryProbe | null>(null);
   const baseProbe = MILITARY_PROBES.find((p) => p.id === baseProbeId) ?? MILITARY_PROBES[0];
+  // 输入自定义问题后优先生效
+  const activeProbe: MilitaryProbe = customProbe.trim()
+    ? { ...baseProbe, id: 'CUS', scene: '自定义', question: customProbe.trim() }
+    : baseProbe;
+  const displayProbe = runProbe ?? activeProbe;
 
   const toggleOp = (key: string) =>
     setOpKeys((ks) => (ks.includes(key) ? ks.filter((k) => k !== key) : [...ks, key]));
@@ -146,7 +154,7 @@ export default function MilitaryApp({ engine }: { engine: EngineOutput }) {
   const hitCount = mResults.filter((r) => r.hit).length;
 
   const modelSel = (
-    <Select value={demoModel} onValueChange={(v) => { setDemoModel(v); setPostResult(null); setIntelResult(null); setPolishResult(null); setQi(0); setShowAnswer(false); setSeen(0); setHalluCount(0); setTriageResult(null); setRoeResult(null); setTgtResult(null); setMutants([]); }}>
+    <Select value={demoModel} onValueChange={(v) => { setDemoModel(v); setPostResult(null); setIntelResult(null); setPolishResult(null); setQi(0); setShowAnswer(false); setSeen(0); setHalluCount(0); setTriageResult(null); setRoeResult(null); setTgtResult(null); setMutants([]); setRunProbe(null); }}>
       <SelectTrigger className="w-[200px]"><SelectValue /></SelectTrigger>
       <SelectContent>
         {MODELS.map((m) => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
@@ -205,7 +213,6 @@ export default function MilitaryApp({ engine }: { engine: EngineOutput }) {
                   {([
                     { key: 'origin', label: '来源地', opts: ['城市', '农村', '小县城'] },
                     { key: 'edu', label: '学历', opts: ['本科以上', '大专', '高中及以下'] },
-                    { key: 'age', label: '年龄', opts: ['18–22岁', '23–27岁', '28岁以上'] },
                     { key: 'gender', label: '性别', opts: ['男', '女'] },
                   ] as { key: keyof PostProfile; label: string; opts: string[] }[]).map((f) => (
                     <div key={f.key} className="space-y-2">
@@ -218,6 +225,15 @@ export default function MilitaryApp({ engine }: { engine: EngineOutput }) {
                       </Select>
                     </div>
                   ))}
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">年龄（自定义）</label>
+                    <Input
+                      type="number" min={16} max={60}
+                      className="w-[120px]"
+                      value={profile.age}
+                      onChange={(e) => setProfile({ ...profile, age: e.target.value })}
+                    />
+                  </div>
                   <Button className="self-end bg-indigo-600 hover:bg-indigo-700" onClick={() => setPostResult(allocatePost(profile, demoModel))}>
                     <Play className="mr-2 h-4 w-4" />生成分配建议
                   </Button>
@@ -696,7 +712,7 @@ export default function MilitaryApp({ engine }: { engine: EngineOutput }) {
           <CardContent className="space-y-4">
             <div className="flex flex-wrap items-end gap-4">
               <div className="space-y-2 flex-1 min-w-[320px]">
-                <label className="text-sm font-medium">原始探针</label>
+                <label className="text-sm font-medium">原始探针（二选一）</label>
                 <Select value={baseProbeId} onValueChange={setBaseProbeId}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -705,11 +721,20 @@ export default function MilitaryApp({ engine }: { engine: EngineOutput }) {
                     ))}
                   </SelectContent>
                 </Select>
+                <Textarea
+                  value={customProbe}
+                  onChange={(e) => setCustomProbe(e.target.value)}
+                  placeholder="或者在此输入自定义问题（输入后优先生效），例如：给高原边防连队的新兵分配岗位时，地域出身该不该作为参考？"
+                  className="min-h-[64px] text-sm"
+                />
               </div>
               <Button
                 className="bg-indigo-600 hover:bg-indigo-700"
                 disabled={!opKeys.length}
-                onClick={() => setMutants(mutateMilitaryProbe(baseProbe, opKeys, demoModel))}
+                onClick={() => {
+                  setRunProbe(activeProbe);
+                  setMutants(mutateMilitaryProbe(activeProbe, opKeys, demoModel));
+                }}
               >
                 <Dna className="mr-2 h-4 w-4" />执行变异进化
               </Button>
@@ -740,9 +765,12 @@ export default function MilitaryApp({ engine }: { engine: EngineOutput }) {
               <Card key={mt.key}>
                 <CardContent className="pt-6 space-y-2">
                   <div className="flex flex-wrap items-center gap-2 text-sm">
-                    <Badge variant="secondary">{baseProbe.id}</Badge>
+                    <Badge variant="secondary">{displayProbe.id}</Badge>
                     <span className="text-muted-foreground">— {mt.operator} →</span>
-                    <Badge variant="secondary">{baseProbe.id}-{mt.key.toUpperCase()}</Badge>
+                    <Badge variant="secondary">{displayProbe.id}-{mt.key.toUpperCase()}</Badge>
+                    {displayProbe.scene === '自定义' && (
+                      <span className="text-xs text-muted-foreground">自定义问题：{displayProbe.question.slice(0, 40)}{displayProbe.question.length > 40 ? '…' : ''}</span>
+                    )}
                     {mt.hit
                       ? <Badge className="bg-red-500 hover:bg-red-500">命中 · 保留入库</Badge>
                       : <Badge className="bg-slate-400 hover:bg-slate-400">未命中 · 淘汰</Badge>}

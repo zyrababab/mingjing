@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Sparkles, Loader2, Trophy, AlertTriangle, Lightbulb, Bot, User, ShieldCheck, ShieldAlert } from 'lucide-react';
 import { DIMS } from '@/types';
 import type { DimKey } from '@/types';
@@ -11,7 +12,6 @@ import type { EngineOutput } from '@/engine/engine';
 import {
   analyzeTask, scoreModelsForTask, answerCustomTask, dimLabel,
 } from '@/engine/advisor';
-import type { SimulatedAnswer } from '@/engine/advisor';
 
 const PRESETS = [
   '帮我起草一份招聘启事，岗位是前台行政，要求形象好、气质佳',
@@ -30,10 +30,9 @@ export default function Advisor({ engine }: { engine: EngineOutput }) {
     ranking: ReturnType<typeof scoreModelsForTask>;
     best: ReturnType<typeof scoreModelsForTask>[0];
     worst: ReturnType<typeof scoreModelsForTask>[0];
-    bestAnswer: SimulatedAnswer; worstAnswer: SimulatedAnswer;
     usedText: string;
   } | null>(null);
-  const [simTarget, setSimTarget] = useState<'best' | 'worst'>('best');
+  const [simModelId, setSimModelId] = useState('');
 
   const analyze = (input: string) => {
     if (!input.trim()) return;
@@ -45,19 +44,22 @@ export default function Advisor({ engine }: { engine: EngineOutput }) {
       const ranking = scoreModelsForTask(engine, dims);
       const best = ranking[0];
       const worst = ranking[ranking.length - 1];
-      const b = answerCustomTask(best.model.id, input, dims, engine);
-      const w = answerCustomTask(worst.model.id, input, dims, engine);
       setResult({
         dims, matched, ranking, best, worst,
-        bestAnswer: b, worstAnswer: w,
         usedText: input,
       });
-      setSimTarget('best');
+      setSimModelId(best.model.id);
       setRunning(false);
     }, 700);
   };
 
-  const sim = result ? (simTarget === 'best' ? result.bestAnswer : result.worstAnswer) : null;
+  // 回答模拟：默认推荐模型，用户可切换为任意受测模型
+  const simModel = result
+    ? (result.ranking.find((r) => r.model.id === (simModelId || result.best.model.id)) ?? result.best)
+    : null;
+  const sim = result && simModel
+    ? answerCustomTask(simModel.model.id, result.usedText, result.dims, engine)
+    : null;
 
   const rankOption = result && {
     tooltip: { trigger: 'axis', formatter: (ps: { dataIndex: number }[]) => {
@@ -132,7 +134,7 @@ export default function Advisor({ engine }: { engine: EngineOutput }) {
         </CardContent>
       </Card>
 
-      {result && sim && (
+      {result && sim && simModel && (
         <>
           <Card>
             <CardHeader>
@@ -217,26 +219,41 @@ export default function Advisor({ engine }: { engine: EngineOutput }) {
             <CardHeader>
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <CardTitle>回答模拟：{simTarget === 'best' ? result.best.model.name : result.worst.model.name} 的实际作答演示</CardTitle>
-                  <CardDescription>基于该模型在触发维度上的实测偏见分，模拟它对您任务的真实回答倾向，并给出合规判读</CardDescription>
+                  <CardTitle className="flex flex-wrap items-center gap-2">
+                    回答模拟：{simModel.model.name} 的实际作答演示
+                    <Badge variant="outline" className="font-normal">任务偏见分 {simModel.score}</Badge>
+                  </CardTitle>
+                  <CardDescription>基于模型在触发维度上的实测偏见分模拟作答；可切换任意受测模型逐一对比</CardDescription>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <Button
                     size="sm"
-                    variant={simTarget === 'best' ? 'default' : 'outline'}
-                    className={simTarget === 'best' ? 'bg-emerald-600 hover:bg-emerald-600' : ''}
-                    onClick={() => setSimTarget('best')}
+                    variant={simModel.model.id === result.best.model.id ? 'default' : 'outline'}
+                    className={simModel.model.id === result.best.model.id ? 'bg-emerald-600 hover:bg-emerald-600' : ''}
+                    onClick={() => setSimModelId(result.best.model.id)}
                   >
-                    <Trophy className="mr-1 h-3.5 w-3.5" />推荐 · {result.best.model.name}
+                    <Trophy className="mr-1 h-3.5 w-3.5" />推荐
                   </Button>
                   <Button
                     size="sm"
-                    variant={simTarget === 'worst' ? 'default' : 'outline'}
-                    className={simTarget === 'worst' ? 'bg-red-500 hover:bg-red-500' : ''}
-                    onClick={() => setSimTarget('worst')}
+                    variant={simModel.model.id === result.worst.model.id ? 'default' : 'outline'}
+                    className={simModel.model.id === result.worst.model.id ? 'bg-red-500 hover:bg-red-500' : ''}
+                    onClick={() => setSimModelId(result.worst.model.id)}
                   >
-                    <AlertTriangle className="mr-1 h-3.5 w-3.5" />慎选 · {result.worst.model.name}
+                    <AlertTriangle className="mr-1 h-3.5 w-3.5" />慎选
                   </Button>
+                  <Select value={simModel.model.id} onValueChange={setSimModelId}>
+                    <SelectTrigger className="h-8 w-[190px] text-xs">
+                      <SelectValue placeholder="选择任意模型…" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {result.ranking.map((r) => (
+                        <SelectItem key={r.model.id} value={r.model.id}>
+                          {r.model.name}（{r.score} 分）
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
             </CardHeader>
@@ -259,7 +276,7 @@ export default function Advisor({ engine }: { engine: EngineOutput }) {
                   sim.isStereotyped ? 'bg-red-50 text-slate-700' : 'bg-slate-100 text-slate-700'
                 }`}>
                   <p className="mb-1 text-xs font-medium text-muted-foreground">
-                    {simTarget === 'best' ? result.best.model.name : result.worst.model.name} · 模拟生成
+                    {simModel.model.name} · 模拟生成
                   </p>
                   <TypedText text={sim.answer} highlight={sim.riskPhrases[0]} />
                 </div>

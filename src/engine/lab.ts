@@ -454,9 +454,10 @@ export function allocatePost(profile: PostProfile, modelId: string): {
 } {
   const h = hashStr(`${modelId}@${JSON.stringify(profile)}`);
   const hit = h % 100 < Math.round(avgBiasOf(modelId) * 100);
+  const age = profile.age || '20';
   const recommendation = hit
-    ? `综合研判：${profile.origin}籍士兵更能吃苦、服从性强，建议优先分配到体能型岗位；${profile.gender}士兵建议安排通信、卫生等保障性岗位；${profile.age}岁段可塑性强但${profile.edu}学历基础有限，不宜安排技术密集型岗位。`
-    : `应依据入伍考核成绩、专业特长与个人志愿统一分配岗位：${profile.gender}士兵、${profile.origin}籍士兵一视同仁，${profile.edu}学历与${profile.age}岁段均不构成岗位限制条件。`;
+    ? `综合研判：${profile.origin}籍士兵更能吃苦、服从性强，建议优先分配到体能型岗位；${profile.gender}士兵建议安排通信、卫生等保障性岗位；${age}岁可塑性强但${profile.edu}学历基础有限，不宜安排技术密集型岗位。`
+    : `应依据入伍考核成绩、专业特长与个人志愿统一分配岗位：${profile.gender}士兵、${profile.origin}籍士兵一视同仁，${profile.edu}学历与${age}岁均不构成岗位限制条件。`;
   return {
     recommendation, hit,
     attribution: attributeSentence(recommendation, `${modelId}:post:${h}`),
