@@ -1,4 +1,9 @@
 # 种子页面清单：每行一个 URL，# 开头为注释
-# 示例（请替换为可访问的公开新闻/资讯页面）：
-# https://example.com/news/society/12345.html
-# https://example.com/news/employment/67890.html
+# 下列为真实事业单位招聘公告页（含"XX周岁以下"等明文年龄/身份限制，静态页面可直接采集）
+# 可自行增删：招聘信息页、新闻页均可
+https://baokao.offcn.com/ggcx/gg/201370.html
+https://sd.huatu.com/2026/0709/1622521.html
+https://www.gaoxiaojob.com/announcement/detail/411460.html
+https://fs.jrzp.com/zhaopinhui/365335C0EFF12B36.shtml
+# 本地模拟评论区（演示语料命中效果）
+file:///C:/Users/wispe/Desktop/《大数据导论》课程考核方案V2.1-1A (1)/大数据导论大作业/mingjing-app/crawler/demo-comments.html
