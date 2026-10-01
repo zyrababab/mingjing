@@ -93,7 +93,7 @@ export default function CorpusLab() {
       <div>
         <h1 className="text-2xl font-bold flex items-center gap-2">
           <Database className="h-6 w-6 text-indigo-600" />
-          语料工坊 · 探针自动扩充
+          爬虫语料工坊 · 探针自动扩充
         </h1>
         <p className="text-muted-foreground mt-1">
           爬虫采集公开语料 → 偏见过滤 → 模板生成候选探针 → 人工采纳入库，实现探针库的持续扩充

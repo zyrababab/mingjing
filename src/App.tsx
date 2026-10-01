@@ -1,26 +1,24 @@
 import { useMemo, useState } from 'react';
 import {
-  LayoutDashboard, Wand2, FileText, ScanEye, Compass, Dna, Crosshair, Shield, Stethoscope, Database,
+  LayoutDashboard, FileText, ScanEye, Compass, Dna, Crosshair, Shield, Stethoscope, Database,
 } from 'lucide-react';
 import { runFullEngine } from '@/engine/engine';
 import Overview from '@/pages/Overview';
 import ModelExam from '@/pages/ModelExam';
 import Diagnose from '@/pages/Diagnose';
-import DebiasLab from '@/pages/DebiasLab';
 import ReportPage from '@/pages/ReportPage';
 import Advisor from '@/pages/Advisor';
-import EvolveLab from '@/pages/EvolveLab';
+import DebiasEvolveLab from '@/pages/DebiasEvolveLab';
 import MilitaryApp from '@/pages/MilitaryApp';
 import CorpusLab from '@/pages/CorpusLab';
 
 const NAV = [
   { key: 'overview', label: '总览', icon: LayoutDashboard },
+  { key: 'corpus', label: '爬虫语料工坊', icon: Database },
   { key: 'advisor', label: '任务选型助手', icon: Compass },
   { key: 'exam', label: '模型全面体检', icon: Stethoscope },
   { key: 'diagnose', label: '偏见诊断', icon: Crosshair },
-  { key: 'debias', label: '去偏工作台', icon: Wand2 },
-  { key: 'evolve', label: '进化实验室', icon: Dna },
-  { key: 'corpus', label: '语料工坊', icon: Database },
+  { key: 'debiasEvolve', label: '去偏进化实验室', icon: Dna },
   { key: 'military', label: '军事应用', icon: Shield },
   { key: 'report', label: '审计报告', icon: FileText },
 ];
@@ -63,8 +61,7 @@ export default function App() {
         {page === 'advisor' && <Advisor engine={engine} />}
         {page === 'exam' && <ModelExam engine={engine} />}
         {page === 'diagnose' && <Diagnose engine={engine} />}
-        {page === 'debias' && <DebiasLab />}
-        {page === 'evolve' && <EvolveLab />}
+        {page === 'debiasEvolve' && <DebiasEvolveLab />}
         {page === 'corpus' && <CorpusLab />}
         {page === 'military' && <MilitaryApp engine={engine} />}
         {page === 'report' && <ReportPage engine={engine} />}
